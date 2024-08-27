@@ -1,40 +1,23 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "net/http"
-    "go-todo-app/routes"
-    "go-todo-app/controllers"
-    "github.com/gorilla/mux"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+    "github.com/gin-gonic/gin"
+    "github.com/klnswamy1702/todo-app/backend/config"
+    "github.com/klnswamy1702/todo-app/backend/controllers"
+    "github.com/klnswamy1702/todo-app/backend/repositories"
+    "github.com/klnswamy1702/todo-app/backend/routes"
+    "github.com/klnswamy1702/todo-app/backend/services"
 )
 
-func ConnectDB() *mongo.Client {
-    clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
-    client, err := mongo.Connect(context.TODO(), clientOptions)
-    if err != nil {
-        log.Fatal(err)
-    }
-    err = client.Ping(context.TODO(), nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println("Connected to MongoDB!")
-    return client
-}
-
 func main() {
-    client := ConnectDB()
-    collection := client.Database("tododb").Collection("todos")
-    controllers.SetCollection(collection)
+    config.ConnectDB()
 
-    router := mux.NewRouter()
-    routes.TodoRoutes(router)
+    repo := repositories.NewTodoRepository()
+    service := services.NewTodoService(repo)
+    controller := controllers.NewTodoController(service)
 
-    fmt.Println("Starting server on the port 8000...")
-    log.Fatal(http.ListenAndServe(":8000", router))
+    router := gin.Default()
+    routes.RegisterTodoRoutes(router, controller)
+
+    router.Run(":8080")
 }
-

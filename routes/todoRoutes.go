@@ -1,14 +1,14 @@
 package routes
 
 import (
-    "go-todo-app/controllers"
-    "github.com/gorilla/mux"
+    "github.com/gin-gonic/gin"
+    "github.com/klnswamy1702/todo-app/backend/controllers"
 )
 
-func TodoRoutes(router *mux.Router) {
-    router.HandleFunc("/todos", controllers.CreateTodoEndpoint).Methods("POST")
-    router.HandleFunc("/todos", controllers.GetTodosEndpoint).Methods("GET")
-    router.HandleFunc("/todos/{id}", controllers.UpdateTodoEndpoint).Methods("PUT")
-    router.HandleFunc("/todos/{id}", controllers.DeleteTodoEndpoint).Methods("DELETE")
+func RegisterTodoRoutes(router *gin.Engine, controller *controllers.TodoController) {
+    router.GET("/todos", controller.GetTodos)
+    router.GET("/todos/:id", controller.GetTodoByID)
+    router.POST("/todos", controller.CreateTodo)
+    router.PUT("/todos/:id", controller.UpdateTodo)
+    router.DELETE("/todos/:id", controller.DeleteTodo)
 }
-

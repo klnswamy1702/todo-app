@@ -1,80 +1,71 @@
 package controllers
 
 import (
-    "context"
-    "encoding/json"
+    "github.com/gin-gonic/gin"
+    "github.com/klnswamy1702/todo-app/backend/models"
+    "github.com/klnswamy1702/todo-app/backend/services"
     "net/http"
-    "go-todo-app/models"
-    "log"
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "github.com/gorilla/mux"
 )
 
-// Get collection from MongoDB
-var collection *mongo.Collection
-
-func SetCollection(c *mongo.Collection) {
-    collection = c
+type TodoController struct {
+    service services.TodoService
 }
 
-// Create a new Todo
-func CreateTodoEndpoint(response http.ResponseWriter, request *http.Request) {
-    response.Header().Set("Content-Type", "application/json")
+func NewTodoController(service services.TodoService) *TodoController {
+    return &TodoController{service: service}
+}
+
+func (c *TodoController) GetTodos(ctx *gin.Context) {
+    todos, err := c.service.GetAllTodos()
+    if err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    ctx.JSON(http.StatusOK, todos)
+}
+
+func (c *TodoController) GetTodoByID(ctx *gin.Context) {
+    id := ctx.Param("id")
+    todo, err := c.service.GetTodoByID(id)
+    if err != nil {
+        ctx.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
+        return
+    }
+    ctx.JSON(http.StatusOK, todo)
+}
+
+func (c *TodoController) CreateTodo(ctx *gin.Context) {
     var todo models.Todo
-    _ = json.NewDecoder(request.Body).Decode(&todo)
-    todo.ID = primitive.NewObjectID()
-    result, err := collection.InsertOne(context.TODO(), todo)
-    if err != nil {
-        log.Fatal(err)
+    if err := ctx.ShouldBindJSON(&todo); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
     }
-    json.NewEncoder(response).Encode(result)
+    if err := c.service.CreateTodo(todo); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    ctx.JSON(http.StatusCreated, todo)
 }
 
-// Get all Todos
-func GetTodosEndpoint(response http.ResponseWriter, request *http.Request) {
-    response.Header().Set("Content-Type", "application/json")
-    var todos []models.Todo
-    cursor, err := collection.Find(context.TODO(), bson.M{})
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer cursor.Close(context.TODO())
-    for cursor.Next(context.TODO()) {
-        var todo models.Todo
-        cursor.Decode(&todo)
-        todos = append(todos, todo)
-    }
-    json.NewEncoder(response).Encode(todos)
-}
-
-// Update a Todo
-func UpdateTodoEndpoint(response http.ResponseWriter, request *http.Request) {
-    response.Header().Set("Content-Type", "application/json")
-    params := mux.Vars(request)
-    id, _ := primitive.ObjectIDFromHex(params["id"])
+func (c *TodoController) UpdateTodo(ctx *gin.Context) {
+    id := ctx.Param("id")
     var todo models.Todo
-    _ = json.NewDecoder(request.Body).Decode(&todo)
-    filter := bson.M{"_id": id}
-    update := bson.M{"$set": todo}
-    result, err := collection.UpdateOne(context.TODO(), filter, update)
-    if err != nil {
-        log.Fatal(err)
+    if err := ctx.ShouldBindJSON(&todo); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
     }
-    json.NewEncoder(response).Encode(result)
+    if err := c.service.UpdateTodo(id, todo); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    ctx.JSON(http.StatusOK, todo)
 }
 
-// Delete a Todo
-func DeleteTodoEndpoint(response http.ResponseWriter, request *http.Request) {
-    response.Header().Set("Content-Type", "application/json")
-    params := mux.Vars(request)
-    id, _ := primitive.ObjectIDFromHex(params["id"])
-    filter := bson.M{"_id": id}
-    result, err := collection.DeleteOne(context.TODO(), filter)
-    if err != nil {
-        log.Fatal(err)
+func (c *TodoController) DeleteTodo(ctx *gin.Context) {
+    id := ctx.Param("id")
+    if err := c.service.DeleteTodo(id); err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
     }
-    json.NewEncoder(response).Encode(result)
+    ctx.JSON(http.StatusOK, gin.H{"message": "Todo deleted successfully"})
 }
-
